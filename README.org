@@ -6,6 +6,7 @@ Emacs control layer for the Emacs-first fork of OCP CAD Viewer:
 [[https://github.com/KarimAziev/vscode-ocp-cad-viewer][KarimAziev/vscode-ocp-cad-viewer]]. This package controls the standalone
 browser viewer over its websocket command API, so camera navigation can be
 driven from Emacs without mouse gestures and without relying on browser focus.
+For hot-reloading preview scripts, this package pairs well with [[https://github.com/KarimAziev/build123d-ocp-preview][KarimAziev/build123d-ocp-preview]].
 
 * Table of Contents                                       :TOC_2_gh:QUOTE:
 #+BEGIN_QUOTE
@@ -20,6 +21,7 @@ driven from Emacs without mouse gestures and without relying on browser focus.
 - [[#usage][Usage]]
   - [[#backend-viewer][Backend viewer]]
   - [[#basic-emacs-workflow][Basic Emacs workflow]]
+  - [[#hot-reload-workflow][Hot reload workflow]]
   - [[#keybindings][Keybindings]]
   - [[#customization][Customization]]
   - [[#direct-commands][Direct commands]]
@@ -279,6 +281,31 @@ and close the websocket connection with:
 #+begin_src text
 M-x ocp-cad-viewer-disconnect
 #+end_src
+
+** Hot reload workflow
+
+For build123d projects, the optional
+[[https://github.com/KarimAziev/build123d-ocp-preview][build123d-ocp-preview]] package provides the ~ocp123d~ command. It starts a
+long-lived ~ocp_vscode~ viewer server, watches Python files recursively, and
+re-runs your preview entry script when files change.
+
+Example:
+
+#+begin_src shell :eval no
+cd /path/to/my-build123d-project
+source .venv/bin/activate
+ocp123d -p . assembly.py
+#+end_src
+
+Then use this Emacs package for camera control:
+
+#+begin_src text
+M-x ocp-cad-viewer-open
+M-x ocp-cad-viewer-control-buffer
+#+end_src
+
+In this setup, ~ocp123d~ keeps the geometry fresh and ~ocp-cad-viewer~ keeps
+camera navigation inside Emacs.
 
 ** Keybindings
 
