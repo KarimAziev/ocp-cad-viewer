@@ -1,0 +1,360 @@
+#+OPTIONS: ^:nil tags:nil num:nil
+
+* About
+
+Emacs control layer for the Emacs-first fork of OCP CAD Viewer:
+[[https://github.com/KarimAziev/vscode-ocp-cad-viewer][KarimAziev/vscode-ocp-cad-viewer]]. This package controls the standalone
+browser viewer over its websocket command API, so camera navigation can be
+driven from Emacs without mouse gestures and without relying on browser focus.
+
+* Table of Contents                                       :TOC_2_gh:QUOTE:
+#+BEGIN_QUOTE
+- [[#about][About]]
+- [[#requirements][Requirements]]
+- [[#installation][Installation]]
+  - [[#straightel][straight.el]]
+  - [[#quelpa][Quelpa]]
+  - [[#vc][VC]]
+  - [[#manual-installation][Manual installation]]
+  - [[#doom-emacs][Doom Emacs]]
+- [[#usage][Usage]]
+  - [[#backend-viewer][Backend viewer]]
+  - [[#basic-emacs-workflow][Basic Emacs workflow]]
+  - [[#keybindings][Keybindings]]
+  - [[#customization][Customization]]
+  - [[#direct-commands][Direct commands]]
+#+END_QUOTE
+
+* Requirements
+
+| Name                | Version |
+|---------------------+---------|
+| Emacs               |    29.1 |
+| ~websocket~         |    1.16 |
+| ~transient~         |     any |
+| Forked ~ocp_vscode~ |     3.4 |
+
+
+* Installation
+
+#+html: <details><summary>
+** straight.el
+#+html: </summary>
+#+begin_src elisp :eval no
+(use-package ocp-cad-viewer
+  :straight (ocp-cad-viewer
+             :host github
+             :repo "KarimAziev/ocp-cad-viewer"
+             :type git
+             :flavor nil)
+  :bind ((:map ocp-cad-viewer-mode-map
+          ("+" . ocp-cad-viewer-zoom-in)
+          ("-" . ocp-cad-viewer-zoom-out)
+          ("0" . ocp-cad-viewer-reset)
+          ("?" . ocp-cad-viewer-menu)
+          ("b" . ocp-cad-viewer-view-rear)
+          ("d" . ocp-cad-viewer-view-bottom)
+          ("f" . ocp-cad-viewer-view-front)
+          ("i" . ocp-cad-viewer-view-iso)
+          ("l" . ocp-cad-viewer-view-left)
+          ("r" . ocp-cad-viewer-view-right)
+          ("t" . ocp-cad-viewer-view-top)
+          ("M-<down>" . ocp-cad-viewer-pan-down)
+          ("M-<left>" . ocp-cad-viewer-pan-left)
+          ("M-<right>" . ocp-cad-viewer-pan-right)
+          ("M-<up>" . ocp-cad-viewer-pan-up)))
+  :commands (ocp-cad-viewer-control-buffer
+             ocp-cad-viewer-set-camera
+             ocp-cad-viewer-pan-backward
+             ocp-cad-viewer-pan-forward
+             ocp-cad-viewer-rotate-z-
+             ocp-cad-viewer-rotate-z+
+             ocp-cad-viewer-rotate-x-
+             ocp-cad-viewer-rotate-x+
+             ocp-cad-viewer-open
+             ocp-cad-viewer-reconnect
+             ocp-cad-viewer-disconnect
+             ocp-cad-viewer-connect))
+#+end_src
+#+html: </details>
+
+#+html: <details><summary>
+** Quelpa
+#+html: </summary>
+#+begin_src elisp :eval no
+(use-package ocp-cad-viewer
+  :quelpa (ocp-cad-viewer
+           :fetcher github
+           :repo "KarimAziev/ocp-cad-viewer")
+  :bind ((:map ocp-cad-viewer-mode-map
+          ("+" . ocp-cad-viewer-zoom-in)
+          ("-" . ocp-cad-viewer-zoom-out)
+          ("0" . ocp-cad-viewer-reset)
+          ("?" . ocp-cad-viewer-menu)
+          ("b" . ocp-cad-viewer-view-rear)
+          ("d" . ocp-cad-viewer-view-bottom)
+          ("f" . ocp-cad-viewer-view-front)
+          ("i" . ocp-cad-viewer-view-iso)
+          ("l" . ocp-cad-viewer-view-left)
+          ("r" . ocp-cad-viewer-view-right)
+          ("t" . ocp-cad-viewer-view-top)
+          ("M-<down>" . ocp-cad-viewer-pan-down)
+          ("M-<left>" . ocp-cad-viewer-pan-left)
+          ("M-<right>" . ocp-cad-viewer-pan-right)
+          ("M-<up>" . ocp-cad-viewer-pan-up)))
+  :commands (ocp-cad-viewer-control-buffer
+             ocp-cad-viewer-set-camera
+             ocp-cad-viewer-pan-backward
+             ocp-cad-viewer-pan-forward
+             ocp-cad-viewer-rotate-z-
+             ocp-cad-viewer-rotate-z+
+             ocp-cad-viewer-rotate-x-
+             ocp-cad-viewer-rotate-x+
+             ocp-cad-viewer-open
+             ocp-cad-viewer-reconnect
+             ocp-cad-viewer-disconnect
+             ocp-cad-viewer-connect))
+#+end_src
+#+html: </details>
+
+#+html: <details><summary>
+** VC
+#+html: </summary>
+Starting with Emacs 30, you can use use-package together with =package-vc.el=.
+#+begin_src elisp :eval no
+(use-package ocp-cad-viewer
+  :vc (:url "https://github.com/KarimAziev/ocp-cad-viewer"
+       :rev :newest)
+  :bind ((:map ocp-cad-viewer-mode-map
+          ("+" . ocp-cad-viewer-zoom-in)
+          ("-" . ocp-cad-viewer-zoom-out)
+          ("0" . ocp-cad-viewer-reset)
+          ("?" . ocp-cad-viewer-menu)
+          ("b" . ocp-cad-viewer-view-rear)
+          ("d" . ocp-cad-viewer-view-bottom)
+          ("f" . ocp-cad-viewer-view-front)
+          ("i" . ocp-cad-viewer-view-iso)
+          ("l" . ocp-cad-viewer-view-left)
+          ("r" . ocp-cad-viewer-view-right)
+          ("t" . ocp-cad-viewer-view-top)
+          ("M-<down>" . ocp-cad-viewer-pan-down)
+          ("M-<left>" . ocp-cad-viewer-pan-left)
+          ("M-<right>" . ocp-cad-viewer-pan-right)
+          ("M-<up>" . ocp-cad-viewer-pan-up)))
+  :commands (ocp-cad-viewer-control-buffer
+             ocp-cad-viewer-set-camera
+             ocp-cad-viewer-pan-backward
+             ocp-cad-viewer-pan-forward
+             ocp-cad-viewer-rotate-z-
+             ocp-cad-viewer-rotate-z+
+             ocp-cad-viewer-rotate-x-
+             ocp-cad-viewer-rotate-x+
+             ocp-cad-viewer-open
+             ocp-cad-viewer-reconnect
+             ocp-cad-viewer-disconnect
+             ocp-cad-viewer-connect))
+#+end_src
+#+html: </details>
+
+#+html: <details><summary>
+** Manual installation
+#+html: </summary>
+Download the source code and put it wherever you like, e.g. into =~/.emacs.d/ocp-cad-viewer/=
+#+begin_src shell :eval no
+git clone https://github.com/KarimAziev/ocp-cad-viewer.git ~/.emacs.d/ocp-cad-viewer/
+#+end_src
+Add the downloaded directory to the load path:
+#+begin_src elisp :eval no
+(add-to-list 'load-path "~/.emacs.d/ocp-cad-viewer/")
+(require 'ocp-cad-viewer)
+#+end_src
+#+html: </details>
+
+#+html: <details><summary>
+** Doom Emacs
+#+html: </summary>
+Add package definition to =DOOMDIR/packages.el= (e.g. =~/.doom.d/config.el=):
+#+begin_src elisp :eval no
+(package! ocp-cad-viewer
+          :recipe (:repo "KarimAziev/ocp-cad-viewer"))
+#+end_src
+Configure it in =DOOMDIR/config.el=:
+#+begin_src elisp
+(use-package! ocp-cad-viewer
+  :bind ((:map ocp-cad-viewer-mode-map
+          ("+" . ocp-cad-viewer-zoom-in)
+          ("-" . ocp-cad-viewer-zoom-out)
+          ("0" . ocp-cad-viewer-reset)
+          ("?" . ocp-cad-viewer-menu)
+          ("b" . ocp-cad-viewer-view-rear)
+          ("d" . ocp-cad-viewer-view-bottom)
+          ("f" . ocp-cad-viewer-view-front)
+          ("i" . ocp-cad-viewer-view-iso)
+          ("l" . ocp-cad-viewer-view-left)
+          ("r" . ocp-cad-viewer-view-right)
+          ("t" . ocp-cad-viewer-view-top)
+          ("M-<down>" . ocp-cad-viewer-pan-down)
+          ("M-<left>" . ocp-cad-viewer-pan-left)
+          ("M-<right>" . ocp-cad-viewer-pan-right)
+          ("M-<up>" . ocp-cad-viewer-pan-up)))
+  :commands (ocp-cad-viewer-control-buffer
+             ocp-cad-viewer-set-camera
+             ocp-cad-viewer-pan-backward
+             ocp-cad-viewer-pan-forward
+             ocp-cad-viewer-rotate-z-
+             ocp-cad-viewer-rotate-z+
+             ocp-cad-viewer-rotate-x-
+             ocp-cad-viewer-rotate-x+
+             ocp-cad-viewer-open
+             ocp-cad-viewer-reconnect
+             ocp-cad-viewer-disconnect
+             ocp-cad-viewer-connect))
+#+end_src
+#+html: </details>
+
+* Usage
+
+** Backend viewer
+
+This package expects the forked Python viewer from
+[[https://github.com/KarimAziev/vscode-ocp-cad-viewer][KarimAziev/vscode-ocp-cad-viewer]], not the upstream PyPI package. The fork adds
+the ~viewer_command~ websocket protocol used by this Emacs package.
+
+Start the standalone viewer from the Python checkout:
+
+#+begin_src shell :eval no
+cd /path/to/vscode-ocp-cad-viewer
+.venv/bin/python -m ocp_vscode --port 3939
+#+end_src
+
+The viewer page is:
+
+#+begin_src text
+http://127.0.0.1:3939/viewer
+#+end_src
+
+Your CAD code can send objects to the same viewer in the normal ~ocp_vscode~
+way:
+
+#+begin_src python :eval no
+import cadquery as cq
+from ocp_vscode import set_port, show
+
+set_port(3939)
+show(cq.Workplane().box(1, 2, 3))
+#+end_src
+
+** Basic Emacs workflow
+
+Configure the viewer port if you do not use the default:
+
+#+begin_src elisp :eval no
+(setq ocp-cad-viewer-port 3939)
+#+end_src
+
+Open the viewer in an xwidget/browser and connect the websocket:
+
+#+begin_src text
+M-x ocp-cad-viewer-open
+#+end_src
+
+Open a small Emacs control buffer whose keymap drives the viewer:
+
+#+begin_src text
+M-x ocp-cad-viewer-control-buffer
+#+end_src
+
+The control buffer is useful because ordinary Emacs keybindings remain active
+there. The xwidget page can stay visible while the control buffer receives the
+navigation commands.
+
+You can also connect without opening the browser page:
+
+#+begin_src text
+M-x ocp-cad-viewer-connect
+#+end_src
+
+and close the websocket connection with:
+
+#+begin_src text
+M-x ocp-cad-viewer-disconnect
+#+end_src
+
+** Keybindings
+
+Default bindings in ~ocp-cad-viewer-mode~:
+
+| Key         | Command                      | Effect               |
+|-------------+------------------------------+----------------------|
+| ~<right>~   | ~ocp-cad-viewer-rotate-z-~   | rotate right         |
+| ~<left>~    | ~ocp-cad-viewer-rotate-z+~   | rotate left          |
+| ~<up>~      | ~ocp-cad-viewer-rotate-x+~   | rotate up            |
+| ~<down>~    | ~ocp-cad-viewer-rotate-x-~   | rotate down          |
+| ~M-<left>~  | ~ocp-cad-viewer-pan-left~    | pan left             |
+| ~M-<right>~ | ~ocp-cad-viewer-pan-right~   | pan right            |
+| ~M-<up>~    | ~ocp-cad-viewer-pan-up~      | pan up               |
+| ~M-<down>~  | ~ocp-cad-viewer-pan-down~    | pan down             |
+| ~+~         | ~ocp-cad-viewer-zoom-in~     | zoom in              |
+| ~-~         | ~ocp-cad-viewer-zoom-out~    | zoom out             |
+| ~f~         | ~ocp-cad-viewer-view-front~  | front view           |
+| ~t~         | ~ocp-cad-viewer-view-top~    | top view             |
+| ~l~         | ~ocp-cad-viewer-view-left~   | left view            |
+| ~r~         | ~ocp-cad-viewer-view-right~  | right view           |
+| ~b~         | ~ocp-cad-viewer-view-rear~   | rear/back view       |
+| ~d~         | ~ocp-cad-viewer-view-bottom~ | bottom view          |
+| ~i~         | ~ocp-cad-viewer-view-iso~    | isometric view       |
+| ~0~         | ~ocp-cad-viewer-reset~       | reset camera         |
+| ~?~         | ~ocp-cad-viewer-menu~        | transient command UI |
+
+Numeric prefix arguments scale movement. For example, ~C-u 4 <right>~ sends a
+rotate command with four times the normal rotate step.
+
+** Customization
+
+Useful options:
+
+#+begin_src elisp :eval no
+(setq ocp-cad-viewer-host "127.0.0.1")
+(setq ocp-cad-viewer-port 3939)
+(setq ocp-cad-viewer-rotate-step 10)
+(setq ocp-cad-viewer-pan-step 10)
+(setq ocp-cad-viewer-zoom-step 100)
+#+end_src
+
+The command websocket connects automatically by default when a camera command
+is sent:
+
+#+begin_src elisp :eval no
+(setq ocp-cad-viewer-auto-connect t)
+#+end_src
+
+** Direct commands
+
+The package exposes direct interactive commands for fixed views, movement, and
+connection management:
+
+#+begin_src text
+M-x ocp-cad-viewer-view-front
+M-x ocp-cad-viewer-view-top
+M-x ocp-cad-viewer-view-iso
+M-x ocp-cad-viewer-reset
+M-x ocp-cad-viewer-zoom-in
+M-x ocp-cad-viewer-pan-left
+M-x ocp-cad-viewer-rotate-x+
+#+end_src
+
+For Lisp code, use ~ocp-cad-viewer-viewer-command~ to send a protocol command
+directly:
+
+#+begin_src elisp :eval no
+(ocp-cad-viewer-viewer-command "view" '((value . "front")))
+(ocp-cad-viewer-viewer-command "rotate" '((axis . "x") (delta . 10)))
+(ocp-cad-viewer-viewer-command "pan" '((direction . "left") (step . 10)))
+(ocp-cad-viewer-viewer-command "zoom" '((delta . 100)))
+#+end_src
+
+Those calls emit websocket frames like:
+
+#+begin_src text
+C:{"type":"viewer_command","command":"view","value":"front"}
+#+end_src
