@@ -8,6 +8,37 @@ browser viewer over its websocket command API, so camera navigation can be
 driven from Emacs without mouse gestures and without relying on browser focus.
 For hot-reloading preview scripts, this package pairs well with [[https://github.com/KarimAziev/build123d-ocp-preview][KarimAziev/build123d-ocp-preview]].
 
+The intended build123d workflow is:
+
+#+begin_src text
+edit build123d code in Emacs
+        |
+        | save
+        v
+build123d-ocp-preview / ocp123d
+        |
+        | rerun preview script
+        v
+vscode-ocp-cad-viewer fork
+        |
+        | update standalone browser viewer
+        v
+Emacs xwidget or browser at /viewer
+        ^
+        |
+        | websocket camera commands
+        |
+ocp-cad-viewer.el
+#+end_src
+
+The three pieces have separate responsibilities:
+
+#+begin_src text
+build123d-ocp-preview   keeps geometry fresh
+vscode-ocp-cad-viewer   serves/displays geometry and exposes viewer_command
+ocp-cad-viewer.el       keeps camera/navigation control inside Emacs
+#+end_src
+
 * Table of Contents                                       :TOC_2_gh:QUOTE:
 #+BEGIN_QUOTE
 - [[#about][About]]
