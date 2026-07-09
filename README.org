@@ -43,6 +43,9 @@ ocp-cad-viewer.el       keeps camera/navigation control inside Emacs
 #+BEGIN_QUOTE
 - [[#about][About]]
 - [[#requirements][Requirements]]
+  - [[#emacs-version][Emacs version]]
+  - [[#emacs-libraries][Emacs libraries]]
+  - [[#external-python-programs][External Python programs]]
 - [[#installation][Installation]]
   - [[#straightel][straight.el]]
   - [[#quelpa][Quelpa]]
@@ -60,12 +63,20 @@ ocp-cad-viewer.el       keeps camera/navigation control inside Emacs
 
 * Requirements
 
-| Name                | Version |
-|---------------------+---------|
-| Emacs               |    29.1 |
-| ~websocket~         |    1.16 |
-| ~transient~         |     any |
-| Forked ~ocp_vscode~ |     3.4 |
+** Emacs version
+Emacs 29.1 or later, optionally built with =xwidget= support.
+
+** Emacs libraries
+
+
+| Name      | Version |
+|-----------+---------|
+| [[https://github.com/ahyatt/emacs-websocket][websocket]] | >=1.16  |
+
+** External Python programs
+- [[https://github.com/KarimAziev/vscode-ocp-cad-viewer][vscode-ocp-cad-viewer]]: Provides the Python =show= function. It should be installed in the virtual environment of your CadQuery/build123d project.
+- [[https://github.com/KarimAziev/build123d-ocp-preview][build123d-ocp-preview]]: Provides the =ocp123d= executable, which watches project files and updates the viewer. Run it once for the same file that calls =show=, e.g.: =ocp123d -p . my_file_with_show.py= . It should also be installed in the virtual environment of your CadQuery/build123d project.
+
 
 
 * Installation
@@ -80,34 +91,7 @@ ocp-cad-viewer.el       keeps camera/navigation control inside Emacs
              :repo "KarimAziev/ocp-cad-viewer"
              :type git
              :flavor nil)
-  :bind ((:map ocp-cad-viewer-mode-map
-          ("+" . ocp-cad-viewer-zoom-in)
-          ("-" . ocp-cad-viewer-zoom-out)
-          ("0" . ocp-cad-viewer-reset)
-          ("?" . ocp-cad-viewer-menu)
-          ("b" . ocp-cad-viewer-view-rear)
-          ("d" . ocp-cad-viewer-view-bottom)
-          ("f" . ocp-cad-viewer-view-front)
-          ("i" . ocp-cad-viewer-view-iso)
-          ("l" . ocp-cad-viewer-view-left)
-          ("r" . ocp-cad-viewer-view-right)
-          ("t" . ocp-cad-viewer-view-top)
-          ("M-<down>" . ocp-cad-viewer-pan-down)
-          ("M-<left>" . ocp-cad-viewer-pan-left)
-          ("M-<right>" . ocp-cad-viewer-pan-right)
-          ("M-<up>" . ocp-cad-viewer-pan-up)))
-  :commands (ocp-cad-viewer-control-buffer
-             ocp-cad-viewer-set-camera
-             ocp-cad-viewer-pan-backward
-             ocp-cad-viewer-pan-forward
-             ocp-cad-viewer-rotate-z-
-             ocp-cad-viewer-rotate-z+
-             ocp-cad-viewer-rotate-x-
-             ocp-cad-viewer-rotate-x+
-             ocp-cad-viewer-open
-             ocp-cad-viewer-reconnect
-             ocp-cad-viewer-disconnect
-             ocp-cad-viewer-connect))
+  :commands (ocp-cad-viewer-menu))
 #+end_src
 #+html: </details>
 
@@ -119,34 +103,7 @@ ocp-cad-viewer.el       keeps camera/navigation control inside Emacs
   :quelpa (ocp-cad-viewer
            :fetcher github
            :repo "KarimAziev/ocp-cad-viewer")
-  :bind ((:map ocp-cad-viewer-mode-map
-          ("+" . ocp-cad-viewer-zoom-in)
-          ("-" . ocp-cad-viewer-zoom-out)
-          ("0" . ocp-cad-viewer-reset)
-          ("?" . ocp-cad-viewer-menu)
-          ("b" . ocp-cad-viewer-view-rear)
-          ("d" . ocp-cad-viewer-view-bottom)
-          ("f" . ocp-cad-viewer-view-front)
-          ("i" . ocp-cad-viewer-view-iso)
-          ("l" . ocp-cad-viewer-view-left)
-          ("r" . ocp-cad-viewer-view-right)
-          ("t" . ocp-cad-viewer-view-top)
-          ("M-<down>" . ocp-cad-viewer-pan-down)
-          ("M-<left>" . ocp-cad-viewer-pan-left)
-          ("M-<right>" . ocp-cad-viewer-pan-right)
-          ("M-<up>" . ocp-cad-viewer-pan-up)))
-  :commands (ocp-cad-viewer-control-buffer
-             ocp-cad-viewer-set-camera
-             ocp-cad-viewer-pan-backward
-             ocp-cad-viewer-pan-forward
-             ocp-cad-viewer-rotate-z-
-             ocp-cad-viewer-rotate-z+
-             ocp-cad-viewer-rotate-x-
-             ocp-cad-viewer-rotate-x+
-             ocp-cad-viewer-open
-             ocp-cad-viewer-reconnect
-             ocp-cad-viewer-disconnect
-             ocp-cad-viewer-connect))
+  :commands (ocp-cad-viewer-menu))
 #+end_src
 #+html: </details>
 
@@ -158,34 +115,7 @@ Starting with Emacs 30, you can use use-package together with =package-vc.el=.
 (use-package ocp-cad-viewer
   :vc (:url "https://github.com/KarimAziev/ocp-cad-viewer"
        :rev :newest)
-  :bind ((:map ocp-cad-viewer-mode-map
-          ("+" . ocp-cad-viewer-zoom-in)
-          ("-" . ocp-cad-viewer-zoom-out)
-          ("0" . ocp-cad-viewer-reset)
-          ("?" . ocp-cad-viewer-menu)
-          ("b" . ocp-cad-viewer-view-rear)
-          ("d" . ocp-cad-viewer-view-bottom)
-          ("f" . ocp-cad-viewer-view-front)
-          ("i" . ocp-cad-viewer-view-iso)
-          ("l" . ocp-cad-viewer-view-left)
-          ("r" . ocp-cad-viewer-view-right)
-          ("t" . ocp-cad-viewer-view-top)
-          ("M-<down>" . ocp-cad-viewer-pan-down)
-          ("M-<left>" . ocp-cad-viewer-pan-left)
-          ("M-<right>" . ocp-cad-viewer-pan-right)
-          ("M-<up>" . ocp-cad-viewer-pan-up)))
-  :commands (ocp-cad-viewer-control-buffer
-             ocp-cad-viewer-set-camera
-             ocp-cad-viewer-pan-backward
-             ocp-cad-viewer-pan-forward
-             ocp-cad-viewer-rotate-z-
-             ocp-cad-viewer-rotate-z+
-             ocp-cad-viewer-rotate-x-
-             ocp-cad-viewer-rotate-x+
-             ocp-cad-viewer-open
-             ocp-cad-viewer-reconnect
-             ocp-cad-viewer-disconnect
-             ocp-cad-viewer-connect))
+  :commands (ocp-cad-viewer-menu))
 #+end_src
 #+html: </details>
 
@@ -214,34 +144,7 @@ Add package definition to =DOOMDIR/packages.el= (e.g. =~/.doom.d/config.el=):
 Configure it in =DOOMDIR/config.el=:
 #+begin_src elisp
 (use-package! ocp-cad-viewer
-  :bind ((:map ocp-cad-viewer-mode-map
-          ("+" . ocp-cad-viewer-zoom-in)
-          ("-" . ocp-cad-viewer-zoom-out)
-          ("0" . ocp-cad-viewer-reset)
-          ("?" . ocp-cad-viewer-menu)
-          ("b" . ocp-cad-viewer-view-rear)
-          ("d" . ocp-cad-viewer-view-bottom)
-          ("f" . ocp-cad-viewer-view-front)
-          ("i" . ocp-cad-viewer-view-iso)
-          ("l" . ocp-cad-viewer-view-left)
-          ("r" . ocp-cad-viewer-view-right)
-          ("t" . ocp-cad-viewer-view-top)
-          ("M-<down>" . ocp-cad-viewer-pan-down)
-          ("M-<left>" . ocp-cad-viewer-pan-left)
-          ("M-<right>" . ocp-cad-viewer-pan-right)
-          ("M-<up>" . ocp-cad-viewer-pan-up)))
-  :commands (ocp-cad-viewer-control-buffer
-             ocp-cad-viewer-set-camera
-             ocp-cad-viewer-pan-backward
-             ocp-cad-viewer-pan-forward
-             ocp-cad-viewer-rotate-z-
-             ocp-cad-viewer-rotate-z+
-             ocp-cad-viewer-rotate-x-
-             ocp-cad-viewer-rotate-x+
-             ocp-cad-viewer-open
-             ocp-cad-viewer-reconnect
-             ocp-cad-viewer-disconnect
-             ocp-cad-viewer-connect))
+  :commands (ocp-cad-viewer-menu))
 #+end_src
 #+html: </details>
 
