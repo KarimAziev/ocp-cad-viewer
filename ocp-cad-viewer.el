@@ -37,6 +37,7 @@
 (require 'subr-x)
 (require 'websocket)
 (require 'transient)
+(require 'project)
 
 (defgroup ocp-cad-viewer nil
   "Control OCP CAD Viewer from Emacs."
@@ -79,6 +80,7 @@ Each function receives the decoded JSON object."
   :type 'hook
   :group 'ocp-cad-viewer)
 
+
 (defvar ocp-cad-viewer--socket nil
   "Current websocket connection to the OCP CAD Viewer.")
 
@@ -90,7 +92,7 @@ Each function receives the decoded JSON object."
 
 (defun ocp-cad-viewer--viewer-url (&optional host port)
   "Return the standalone viewer URL for HOST and PORT."
-  (format "http://%s:%d/viewer"
+  (format "http://%s:%s/viewer"
           (or host ocp-cad-viewer-host)
           (or port ocp-cad-viewer-port)))
 
@@ -203,23 +205,53 @@ new connection; it defaults to `ocp-cad-viewer-host' (\"127.0.0.1\")."
 With prefix argument PORT, prompt for the port.  HOST defaults to
 `ocp-cad-viewer-host'.  The websocket connection is also opened."
   (interactive
-   (list (when current-prefix-arg
-           (read-number "OCP CAD Viewer port: " ocp-cad-viewer-port))
-         nil))
+   (list
+    (when current-prefix-arg
+      (read-number "OCP CAD Viewer port: " ocp-cad-viewer-port))
+    nil))
   (let* ((target-host (or host ocp-cad-viewer-host))
          (target-port (or port ocp-cad-viewer-port))
          (url (ocp-cad-viewer--viewer-url target-host target-port)))
     (setq ocp-cad-viewer-host target-host
           ocp-cad-viewer-port target-port)
-    (cond
-     ((fboundp 'xwidget-webkit-browse-url)
-      (xwidget-webkit-browse-url url))
-     ((fboundp 'browse-url)
-      (browse-url url))
-     (t
-      (user-error "No xwidget-webkit-browse-url or browse-url available")))
+    (cond ((and
+            (featurep 'xwidget-internal)
+            (fboundp 'xwidget-webkit-browse-url))
+           (ocp-cad-viewer--preview-with-xwidget url)
+           (when-let* ((sess
+                        (when (fboundp 'xwidget-webkit-current-session)
+                          (xwidget-webkit-current-session)))
+                       (buff (xwidget-buffer sess)))
+             (with-current-buffer buff
+               (ocp-cad-viewer-mode 1))))
+          ((fboundp 'browse-url)
+           (browse-url url))
+          (t
+           (user-error "No xwidget-webkit-browse-url or browse-url available")))
     (ocp-cad-viewer-connect target-port target-host)
     url))
+
+(defun ocp-cad-viewer--preview-with-xwidget (url)
+  "Open URL in an xwidget browser in another window."
+  (when (and
+         (featurep 'xwidget-internal)
+         (fboundp 'xwidget-webkit-browse-url))
+    (require 'xwidget)
+    (let ((orig-wind (selected-window)))
+      (with-selected-window
+          (if (minibuffer-window-active-p orig-wind)
+              (with-minibuffer-selected-window
+                (let ((wind (selected-window)))
+                  (or
+                   (window-right wind)
+                   (window-left wind)
+                   (split-window-right))))
+            (let ((wind (selected-window)))
+              (or
+               (window-right wind)
+               (window-left wind)
+               (split-window-right))))
+        (xwidget-webkit-browse-url url)))))
 
 (defun ocp-cad-viewer--encode-viewer-command (command &optional fields)
   "Encode viewer COMMAND and alist FIELDS as an OCP websocket frame."
@@ -475,11 +507,329 @@ number.  Nil values are omitted from the command."
       (ocp-cad-viewer-control-mode))
     (pop-to-buffer buffer)))
 
+
+
+(defun ocp-cad-viewer--current-project-root ()
+  "Return project root directory."
+  (when-let* ((project (ignore-errors (project-current))))
+    (if (fboundp 'project-root)
+        (project-root project)
+      (with-no-warnings
+        (car (project-roots project))))))
+
+(defvar ocp-cad-viewer-current-project nil
+  "Project currently displayed in the CAD viewer.")
+
+(defun ocp-cad-viewer---all-pass (&rest filters)
+  "Create an unary predicate function from FILTERS.
+Return t if every one of the provided predicates is satisfied by provided
+argument."
+  (lambda (item)
+    (not (catch 'found
+           (dolist (filter filters)
+             (unless (funcall filter item)
+               (throw 'found t)))))))
+
+(defun ocp-cad-viewer--project-files (&optional dir regexp predicate)
+  "Return project file names relative to DIR with an optional predicate.
+
+Optional argument DIR is a directory name used as the search
+root; it defaults to `default-directory'.
+
+Optional argument REGEXP is a string regular expression for file
+names; it defaults to nil.
+
+Optional argument PREDICATE is a unary filter function for file
+names; it defaults to nil."
+  (let* ((default-directory
+          (or dir default-directory))
+         (project (ignore-errors (project-current)))
+         (root (if project
+                   (if (fboundp 'project-root)
+                       (project-root project)
+                     (with-no-warnings
+                       (car (project-roots project))))
+                 (or dir default-directory)))
+         (root (and root
+                    (expand-file-name root)))
+         (pred
+          (if project
+              (cond ((and
+                      (stringp regexp)
+                      (functionp predicate))
+                     (ocp-cad-viewer---all-pass
+                      (apply-partially #'string-match-p regexp)
+                      predicate))
+                    ((stringp regexp)
+                     (apply-partially #'string-match-p regexp))
+                    (t predicate))
+            predicate)))
+    (let* ((all-files
+            (if project
+                (project-files project
+                               (and dir (list dir)))
+              (directory-files-recursively
+               default-directory
+               (or regexp "")
+               nil
+               t)))
+           (dir-root (if (and project dir)
+                         (file-name-as-directory (expand-file-name dir))
+                       root))
+           (relnames (mapcar (lambda (file)
+                               (substring-no-properties
+                                file
+                                (length dir-root)))
+                             all-files)))
+      (cons relnames pred))))
+
+(defun ocp-cad-viewer--project-read-project-file (prompt &optional dir regexp
+                                                         predicate)
+  "Read a project file name with completion.
+
+Argument PROMPT is the string prompt passed to `completing-read'; it
+has no default value.
+
+Optional argument DIR is the directory name used as the search root; it
+defaults to nil, causing `default-directory' to be used.
+
+Optional argument REGEXP is a string regular expression used to match
+file names; it defaults to nil.
+
+Optional argument PREDICATE is a unary filter function for file names;
+it defaults to nil."
+  (pcase-let ((`(,relnames . ,pred)
+               (ocp-cad-viewer--project-files
+                dir regexp
+                predicate)))
+    (completing-read prompt relnames pred)))
+
+(defclass ocp-cad-viewer--input-files (transient-infix)
+  ((argument    :initform "--"))
+  "A transient class to read list of files.
+The slot `value' is either a list of files or a single buffer.")
+
+(defun ocp-cad-viewer--normalize-args (args)
+  "Return ARGS flattened, without nils, with each element as a string.
+
+Argument ARGS is a possibly nested list of values to flatten and stringify."
+  (mapcar
+   (apply-partially #'format "%s")
+   (delq nil (flatten-list args))))
+
+(cl-defmethod transient-format-value ((this ocp-cad-viewer--input-files))
+  "Format THIS value for display and return the result."
+  (let ((argument (oref this argument)))
+    (if-let* ((value (oref this value)))
+        (truncate-string-to-width (propertize
+                                   (if (listp value)
+                                       (mapconcat #'identity
+                                                  value " ")
+                                     value)
+                                   'face 'transient-value)
+                                  80 nil nil t)
+      (propertize argument 'face 'transient-inactive-value))))
+
+(transient-define-argument ocp-cad-viewer-ocp123d-ignore-files ()
+  "Project-relative Python file path to ignore."
+  :argument "--ignore="
+  :description "Project files to ignore"
+  :multi-value 'repeat
+  :reader (lambda (prompt &rest _)
+            (pcase-let ((`(,relfiles . ,pred)
+                         (ocp-cad-viewer--project-files
+                          nil
+                          "\\.py\\'")))
+              (completing-read-multiple prompt
+                                        relfiles
+                                        pred)))
+  :init-value (lambda (obj)
+                (let* ((pos (oref transient--prefix
+                                  history-pos))
+                       (hst (oref transient--prefix
+                                  history))
+                       (curr (and pos hst (nth pos hst)))
+                       (hist-value (transient-arg-value
+                                    "--ignore=" curr)))
+                  (oset obj value hist-value)))
+  :class 'transient-files)
+
+(defun ocp-cad-viewer--get-filename ()
+  "Return the relative Python filename when the buffer contains show."
+  (when (and buffer-file-name
+             (string-suffix-p ".py" buffer-file-name)
+             (save-excursion
+               (goto-char (point-min))
+               (re-search-forward
+                "\\_<\\(show\\)\\_>" nil t 1)))
+    (list (file-relative-name buffer-file-name
+                              ocp-cad-viewer-current-project))))
+
+(defvar ocp-cad-viewer-filename nil
+  "Filename of the current CAD viewer document.")
+
+(transient-define-argument ocp-cad-viewer-ocp123d-input-files ()
+  "Other multi value with rest."
+  :argument "--"
+  :description "Files"
+  :multi-value 'rest
+  :always-read t
+  :init-value (lambda (obj)
+                (oset obj value
+                      (or ocp-cad-viewer-filename
+                          (ocp-cad-viewer--get-filename))))
+  :reader
+  (lambda (prompt &rest _)
+    (setq ocp-cad-viewer-filename
+          (list (ocp-cad-viewer--project-read-project-file prompt
+                                                           nil
+                                                           "\\.py\\'"))))
+  :class 'ocp-cad-viewer--input-files)
+
+(transient-define-argument ocp-cad-viewer-ocp123d-project ()
+  "Select a project for the --project option."
+  :argument "--project="
+  :description "Project"
+  :init-value (lambda (obj)
+                (setf (slot-value obj 'value)
+                      ocp-cad-viewer-current-project))
+  :reader (lambda (&rest _)
+            (setq ocp-cad-viewer-current-project
+                  (project-read-project)))
+  :class 'transient-option)
+
+(transient-define-argument ocp-cad-viewer-ocp123d-config ()
+  "Select a TOML config file relative to the current project."
+  :argument "--config="
+  :description "TOML config file"
+  :reader (lambda (prompt &rest _)
+            (file-relative-name
+             (read-file-name prompt (or ocp-cad-viewer-current-project
+                                        default-directory)
+                             nil
+                             nil
+                             nil
+                             (lambda (it)
+                               (or (file-directory-p it)
+                                   (string-suffix-p ".toml" it))))
+             (or ocp-cad-viewer-current-project
+                 default-directory)))
+  :class 'transient-option)
+
+(defun ocp-cad-viewer--read-number-str (prompt initial-input history)
+  "Read a number and return it as a string.
+
+Argument PROMPT is the prompt string for reading the number.
+
+Argument INITIAL-INPUT is the initial input for the number reader.
+
+Argument HISTORY is the history source used by the number reader."
+  (format "%s" (transient-read-number-N+ prompt initial-input
+                                         history)))
+
+
+(transient-define-suffix ocp-cad-viewer-show-args ()
+  "Display current transient command arguments."
+  :description "Show arguments"
+  :transient t
+  (interactive)
+  (if-let* ((raw-args (transient-args (oref transient-current-prefix command)))
+            (args (string-join
+                   (ocp-cad-viewer--normalize-args raw-args)
+                   " ")))
+      (message (concat (propertize "Current args: " 'face 'success)
+                       args))
+    (message (concat (propertize "No args for %s " 'face 'error)
+                     (format "%s" transient-current-command)))))
+
+(defun ocp-cad-viewer--get-compile-buffer-name (command port)
+  "Return the preview buffer name for COMMAND and PORT.
+
+Argument COMMAND is the command name included in the buffer name.
+
+Argument PORT is the port value included in the buffer name."
+  (format "*%s-preview-%s*" command port))
+
+(defvar compilation-read-command)
+(defvar compilation-environment)
+
+(defun ocp-cad-viewer--start-ocp123d-proc (command &rest args)
+  "Return a new buffer with the output of a COMMAND and its arguments.
+Argument COMMAND is the COMMAND to be executed.
+Argument ARGS is a list of arguments to be passed to the COMMAND."
+  (require 'compile)
+  (let ((compenv process-environment))
+    (let* ((compilation-read-command nil)
+           (compilation-environment compenv)
+           (port (or
+                  (transient-arg-value "--port=" args)
+                  ocp-cad-viewer-port))
+           (compile-command (concat command " "
+                                    (mapconcat (lambda (it) it)
+                                               args " ")))
+           (buff-name (ocp-cad-viewer--get-compile-buffer-name command port))
+           (compilation-buffer-name-function
+            (lambda (&optional _mode) buff-name)))
+      (compile compile-command)
+      (ocp-cad-viewer--preview-with-xwidget (ocp-cad-viewer--viewer-url
+                                             ocp-cad-viewer-host
+                                             port)))))
+
+;;;###autoload (autoload 'ocp-cad-viewer-start "parse-help.el" nil t)
+(transient-define-suffix ocp-cad-viewer-start ()
+  "Run a command in a new or existing vterm buffer."
+  :description "Run"
+  :inapt-if-not
+  (lambda () ocp-cad-viewer-filename)
+  (interactive)
+  (save-selected-window
+    (selected-window)
+    (let* ((raw-args (transient-args (oref transient-current-prefix command)))
+           (args (ocp-cad-viewer--normalize-args
+                  raw-args)))
+      (apply #'ocp-cad-viewer--start-ocp123d-proc "ocp123d" args))))
+
+
+
+;;;###autoload (autoload 'ocp-cad-viewer-ocp123d-menu "ocp-cad-viewer" nil t)
+(transient-define-prefix ocp-cad-viewer-ocp123d-menu ()
+  "Configure and start watching ocp_vscode project files."
+  :value (lambda ()
+           (list
+            (format "--port=%s" ocp-cad-viewer-port)))
+  [[("." ocp-cad-viewer-ocp123d-input-files)
+    ("p" ocp-cad-viewer-ocp123d-project)
+    ("o" "ocp_vscode port" "--port="
+     :class transient-option
+     :reader ocp-cad-viewer--read-number-str
+     :always-read t)
+    ("d" "Debounce ms)"
+     "--debounce-ms="
+     :class transient-option
+     :reader ocp-cad-viewer--read-number-str)
+    ("i" ocp-cad-viewer-ocp123d-ignore-files)
+    ("c" ocp-cad-viewer-ocp123d-config)
+    ("-b" "Do not open the browser viewer before the initial run." "--no-open")
+    ("-n" "Start watching without running entries immediately."
+     "--no-initial-run")]]
+  [["Actions"
+    ("v" "Viewer menu" ocp-cad-viewer-menu)
+    ("RET" ocp-cad-viewer-start)
+    ("C-c C-a" ocp-cad-viewer-show-args)
+    ("<return>" ocp-cad-viewer-start)]]
+  (interactive)
+  (unless ocp-cad-viewer-current-project
+    (setq ocp-cad-viewer-current-project
+          (or (ocp-cad-viewer--current-project-root)
+              default-directory)))
+  (transient-setup #'ocp-cad-viewer-ocp123d-menu))
+
 ;;;###autoload (autoload 'ocp-cad-viewer-menu "ocp-cad-viewer" nil t)
 (transient-define-prefix ocp-cad-viewer-menu ()
   "Transient menu for OCP CAD Viewer camera control."
   [["Connection"
     ("o" "Open xwidget" ocp-cad-viewer-open)
+    ("m" "OCP 123d preview" ocp-cad-viewer-ocp123d-menu)
     ("c" "Connect" ocp-cad-viewer-connect)
     ("R" "Reconnect" ocp-cad-viewer-reconnect)
     ("q" "Disconnect" ocp-cad-viewer-disconnect)]
