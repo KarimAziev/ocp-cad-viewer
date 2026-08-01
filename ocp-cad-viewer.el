@@ -630,7 +630,7 @@ Argument ARGS is a possibly nested list of values to flatten and stringify."
                                   80 nil nil t)
       (propertize argument 'face 'transient-inactive-value))))
 
-(transient-define-argument ocp-cad-viewer-ocp123d-ignore-files ()
+(transient-define-argument ocp-cad-viewer-ocp123d-ignore-argument ()
   "Project-relative Python file path to ignore."
   :argument "--ignore="
   :description "Project files to ignore"
@@ -643,15 +643,6 @@ Argument ARGS is a possibly nested list of values to flatten and stringify."
               (completing-read-multiple prompt
                                         relfiles
                                         pred)))
-  :init-value (lambda (obj)
-                (let* ((pos (oref transient--prefix
-                                  history-pos))
-                       (hst (oref transient--prefix
-                                  history))
-                       (curr (and pos hst (nth pos hst)))
-                       (hist-value (transient-arg-value
-                                    "--ignore=" curr)))
-                  (oset obj value hist-value)))
   :class 'transient-files)
 
 (defun ocp-cad-viewer--get-filename ()
@@ -671,25 +662,32 @@ Argument ARGS is a possibly nested list of values to flatten and stringify."
 (transient-define-argument ocp-cad-viewer-ocp123d-input-files ()
   "Other multi value with rest."
   :argument "--"
+  :transient 'transient--do-call
   :description "Files"
   :multi-value 'rest
   :always-read t
   :init-value (lambda (obj)
-                (oset obj value
+                (setq ocp-cad-viewer-filename
                       (or ocp-cad-viewer-filename
-                          (ocp-cad-viewer--get-filename))))
+                          (ocp-cad-viewer--get-filename)))
+                (oset obj value
+                      ocp-cad-viewer-filename))
   :reader
   (lambda (prompt &rest _)
-    (setq ocp-cad-viewer-filename
-          (list (ocp-cad-viewer--project-read-project-file prompt
+    (let ((file (ocp-cad-viewer--project-read-project-file prompt
                                                            nil
-                                                           "\\.py\\'"))))
+                                                           "\\.py\\'")))
+      (setq ocp-cad-viewer-filename
+            (if (and file (not (string= "" (string-trim file))))
+                (list file)
+              nil))))
   :class 'ocp-cad-viewer--input-files)
 
 (transient-define-argument ocp-cad-viewer-ocp123d-project ()
   "Select a project for the --project option."
   :argument "--project="
   :description "Project"
+  :transient 'transient--do-call
   :init-value (lambda (obj)
                 (setf (slot-value obj 'value)
                       ocp-cad-viewer-current-project))
@@ -702,6 +700,7 @@ Argument ARGS is a possibly nested list of values to flatten and stringify."
   "Select a TOML config file relative to the current project."
   :argument "--config="
   :description "TOML config file"
+  :transient 'transient--do-call
   :reader (lambda (prompt &rest _)
             (file-relative-name
              (read-file-name prompt (or ocp-cad-viewer-current-project
@@ -770,30 +769,39 @@ Argument ARGS is a list of arguments to be passed to the COMMAND."
            (buff-name (ocp-cad-viewer--get-compile-buffer-name command port))
            (compilation-buffer-name-function
             (lambda (&optional _mode) buff-name)))
-      (compile compile-command)
-      (ocp-cad-viewer--preview-with-xwidget (ocp-cad-viewer--viewer-url
-                                             ocp-cad-viewer-host
-                                             port)))))
+      (setq ocp-cad-viewer-port (string-to-number port))
+      (compile compile-command))))
+
+(defun ocp-cad-viewer--get-arguments ()
+  "Return current transient arguments."
+  (cond (transient-current-command
+         (transient-args transient-current-command))
+        (transient--prefix
+         (setq transient-current-prefix transient--prefix)
+         (setq transient-current-command (oref transient--prefix command))
+         (setq transient-current-suffixes transient--suffixes)
+         (transient-args transient-current-command))))
 
 ;;;###autoload (autoload 'ocp-cad-viewer-start "parse-help.el" nil t)
 (transient-define-suffix ocp-cad-viewer-start ()
   "Run a command in a new or existing vterm buffer."
   :description "Run"
+  :transient nil
   :inapt-if-not
-  (lambda () ocp-cad-viewer-filename)
+  (lambda ()
+    ocp-cad-viewer-filename)
   (interactive)
-  (save-selected-window
-    (selected-window)
-    (let* ((raw-args (transient-args (oref transient-current-prefix command)))
-           (args (ocp-cad-viewer--normalize-args
-                  raw-args)))
-      (apply #'ocp-cad-viewer--start-ocp123d-proc "ocp123d" args))))
+  (let* ((raw-args (transient-args (oref transient-current-prefix command)))
+         (args (ocp-cad-viewer--normalize-args
+                raw-args)))
+    (apply #'ocp-cad-viewer--start-ocp123d-proc "ocp123d" args)))
 
 
 
 ;;;###autoload (autoload 'ocp-cad-viewer-ocp123d-menu "ocp-cad-viewer" nil t)
 (transient-define-prefix ocp-cad-viewer-ocp123d-menu ()
   "Configure and start watching ocp_vscode project files."
+  :refresh-suffixes t                   ; important for updating inapt! (1)
   :value (lambda ()
            (list
             (format "--port=%s" ocp-cad-viewer-port)))
@@ -807,7 +815,7 @@ Argument ARGS is a list of arguments to be passed to the COMMAND."
      "--debounce-ms="
      :class transient-option
      :reader ocp-cad-viewer--read-number-str)
-    ("i" ocp-cad-viewer-ocp123d-ignore-files)
+    ("i" ocp-cad-viewer-ocp123d-ignore-argument)
     ("c" ocp-cad-viewer-ocp123d-config)
     ("-b" "Do not open the browser viewer before the initial run." "--no-open")
     ("-n" "Start watching without running entries immediately."
@@ -815,13 +823,15 @@ Argument ARGS is a list of arguments to be passed to the COMMAND."
   [["Actions"
     ("v" "Viewer menu" ocp-cad-viewer-menu)
     ("RET" ocp-cad-viewer-start)
-    ("C-c C-a" ocp-cad-viewer-show-args)
-    ("<return>" ocp-cad-viewer-start)]]
+    ("C-c C-a" ocp-cad-viewer-show-args)]]
   (interactive)
   (unless ocp-cad-viewer-current-project
     (setq ocp-cad-viewer-current-project
           (or (ocp-cad-viewer--current-project-root)
               default-directory)))
+  (unless ocp-cad-viewer-filename
+    (setq ocp-cad-viewer-filename
+          (ocp-cad-viewer--get-filename)))
   (transient-setup #'ocp-cad-viewer-ocp123d-menu))
 
 ;;;###autoload (autoload 'ocp-cad-viewer-menu "ocp-cad-viewer" nil t)
